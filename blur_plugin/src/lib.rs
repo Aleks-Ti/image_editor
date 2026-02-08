@@ -1,3 +1,7 @@
+//! Blur plugin for image processing application
+
+#![warn(missing_docs)]
+
 use serde::Deserialize;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -8,6 +12,17 @@ struct Params {
     iterations: u32,
 }
 
+/// Processes an image in-place by applying a blur effect.
+///
+/// # Safety
+///
+/// - `data` must be a valid, writable pointer to a buffer of at least
+///   `width * height * 4` bytes (RGBA8 format).
+/// - The memory pointed to by `data` must be properly aligned and remain
+///   valid for the duration of the call.
+/// - `params` must be either a null pointer or a valid null-terminated
+///   C string.
+/// - This function must not be called concurrently on the same buffer.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn process_image(
     width: u32,

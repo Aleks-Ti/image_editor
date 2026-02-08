@@ -26,6 +26,7 @@ fn platform_library_name(name: &str) -> String {
 }
 
 impl Plugin {
+    /// Loads a plugin from the specified directory and name
     pub fn load(plugin_dir: &Path, plugin_name: &str) -> Result<Self, AppError> {
         let lib_name = platform_library_name(plugin_name);
         let lib_path = plugin_dir.join(lib_name);
