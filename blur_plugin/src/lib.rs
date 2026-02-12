@@ -14,6 +14,8 @@ struct Params {
 
 /// Применяет эффект размытия к изображению на месте.
 ///
+/// # Safety
+/// 
 /// Алгоритм выполняет `iterations` проходов размытия с радиусом `radius`.
 /// Каждый пиксель заменяется средним значением пикселей в квадратной области
 /// размером `(2 * radius + 1) × (2 * radius + 1)`.
@@ -59,7 +61,7 @@ pub unsafe extern "C" fn process_image(
         None => return -1,
     };
 
-    let len = total_pixels.checked_mul(4).unwrap_or(u32::MAX);
+    let len = total_pixels.saturating_mul(4);
 
     if len > 0 && data.is_null() {
         return -1;
