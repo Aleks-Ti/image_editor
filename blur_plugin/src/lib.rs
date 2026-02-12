@@ -54,7 +54,11 @@ pub unsafe extern "C" fn process_image(
     data: *mut u8,
     params: *const c_char,
 ) -> i32 {
-    let total_pixels = width.checked_mul(height).unwrap_or(u32::MAX);
+    let total_pixels = match width.checked_mul(height) {
+        Some(v) => v,
+        None => return -1,
+    };
+
     let len = total_pixels.checked_mul(4).unwrap_or(u32::MAX);
 
     if len > 0 && data.is_null() {
@@ -125,4 +129,82 @@ pub unsafe extern "C" fn process_image(
         temp.copy_from_slice(buf);
     }
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::CString;
+
+    /// Вспомогательная функция для безопасного вызова FFI-функции из тестов
+    unsafe fn call_process_image(
+        width: u32,
+        height: u32,
+        data: &mut [u8],
+        params_json: Option<&str>,
+    ) -> i32 {
+        let params_ptr = match params_json {
+            Some(json) => CString::new(json).unwrap().into_raw() as *const c_char,
+            None => std::ptr::null(),
+        };
+
+        let result = unsafe { process_image(width, height, data.as_mut_ptr(), params_ptr) };
+
+        // Освобождаем память CString, если она была создана
+        if !params_ptr.is_null() {
+            let _ = unsafe { CString::from_raw(params_ptr as *mut c_char) };
+        }
+
+        result
+    }
+    #[test]
+    fn test_blur_single_pixel() {
+        // Для плагина размытия: 1×1 изображение должно оставаться неизменным после размытия
+        let mut data = vec![255, 0, 0, 255];
+        let result = unsafe {
+            call_process_image(1, 1, &mut data, Some(r#"{"radius": 2, "iterations": 3}"#))
+        };
+        assert_eq!(result, 0);
+        assert_eq!(data, vec![255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn test_blur_overflow_prevention() {
+        let mut dummy = [0u8; 4];
+        let result = unsafe {
+            call_process_image(
+                u32::MAX,
+                u32::MAX,
+                &mut dummy,
+                Some(r#"{"radius": 1, "iterations": 1}"#),
+            )
+        };
+        assert_eq!(result, -1);
+    }
+
+    #[test]
+    fn test_overflow_prevention() {
+        // Передаём максимальные значения — функция должна вернуть ошибку, а не паниковать
+        let mut dummy = [0u8; 4];
+
+        let result =
+            unsafe { process_image(u32::MAX, u32::MAX, dummy.as_mut_ptr(), std::ptr::null()) };
+
+        assert_eq!(
+            result, -1,
+            "При переполнении должна возвращаться ошибка (-1), а не происходить паника"
+        );
+    }
+    #[test]
+    fn test_zero_size_image() {
+        // Пустое изображение (0×0) — корректный случай, не должен вызывать ошибок
+        let mut dummy = Vec::<u8>::new();
+
+        let result = unsafe { process_image(0, 0, dummy.as_mut_ptr(), std::ptr::null()) };
+
+        assert_eq!(
+            result, 0,
+            "Пустое изображение (0×0) должно обрабатываться без ошибок"
+        );
+    }
 }
