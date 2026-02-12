@@ -1,7 +1,5 @@
 //! Image processing application with plugin support
 
-#![warn(missing_docs)]
-
 mod error;
 mod plugin_loader;
 
